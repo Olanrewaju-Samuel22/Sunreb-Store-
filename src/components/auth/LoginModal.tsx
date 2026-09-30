@@ -36,7 +36,21 @@ export const LoginModal: React.FC = () => {
     try {
       await loginWithPin(finalPin);
     } catch (err: any) {
-      setError(err.message || 'Invalid PIN. Please check and try again.');
+      const msg: string = (err?.message || '').toLowerCase();
+      if (
+        msg.includes('404') ||
+        msg.includes('status') ||
+        msg.includes('reach the server') ||
+        msg.includes('failed to fetch') ||
+        msg.includes('network') ||
+        msg.includes('connection')
+      ) {
+        setError('Unable to sign in. Please check your connection and try again.');
+      } else if (msg.includes('pin') || msg.includes('inactive') || msg.includes('unauthorized') || msg.includes('profile')) {
+        setError('Invalid PIN. Please check and try again.');
+      } else {
+        setError('Unable to sign in. Please check your connection and try again.');
+      }
       setPin('');
     } finally {
       setIsLoading(false);

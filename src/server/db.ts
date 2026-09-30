@@ -32,12 +32,23 @@ interface DBData {
   expenses: Expense[];
 }
 
-const DATA_DIR = path.resolve(process.cwd(), 'data');
+const isServerless = Boolean(
+  process.env.NETLIFY ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.LAMBDA_TASK_ROOT ||
+  process.env.VERCEL
+);
+
+const DATA_DIR = isServerless ? path.join('/tmp', 'pos_data') : path.resolve(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'pos_database.json');
 
 // Ensure data directory exists
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+} catch (err) {
+  console.warn('Storage directory initialization notice:', err);
 }
 
 function getInitialDB(): DBData {
@@ -93,6 +104,17 @@ class Database {
 
   private load(): DBData {
     try {
+      // In serverless, if /tmp doesn't have the file yet, check if project has data/pos_database.json to seed from
+      if (isServerless && !fs.existsSync(DB_FILE)) {
+        const seedPath = path.resolve(process.cwd(), 'data', 'pos_database.json');
+        if (fs.existsSync(seedPath)) {
+          const raw = fs.readFileSync(seedPath, 'utf-8');
+          const parsed = JSON.parse(raw);
+          this.saveData(parsed);
+          return parsed;
+        }
+      }
+
       if (fs.existsSync(DB_FILE)) {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
         const parsed = JSON.parse(raw);
@@ -120,9 +142,16 @@ class Database {
   }
 
   private saveData(data: DBData) {
-    const tmpFile = `${DB_FILE}.tmp.${Date.now()}`;
-    fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf-8');
-    fs.renameSync(tmpFile, DB_FILE);
+    try {
+      if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+      }
+      const tmpFile = `${DB_FILE}.tmp.${Date.now()}`;
+      fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf-8');
+      fs.renameSync(tmpFile, DB_FILE);
+    } catch (err) {
+      console.error('Failed to save database file:', err);
+    }
   }
 
   private persist() {

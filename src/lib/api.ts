@@ -25,6 +25,12 @@ export const setToken = (token: string | null) => {
 
 export const getToken = () => authToken;
 
+const API_BASE_URL = (
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) ||
+  ''
+).replace(/\/$/, '');
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -35,14 +41,30 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers['Authorization'] = `Bearer ${authToken}`;
   }
 
-  const res = await fetch(endpoint, {
-    ...options,
-    headers,
-  });
+  const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+
+  let res: Response;
+  try {
+    res = await fetch(fullUrl, {
+      ...options,
+      headers,
+    });
+  } catch (_err) {
+    throw new Error('Unable to sign in. Please check your connection and try again.');
+  }
 
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error(data.error || 'Unable to reach the server. Please check your connection or redeploy.');
+    }
+    if (res.status === 401) {
+      throw new Error(data.error || 'Invalid PIN. Please check and try again.');
+    }
+    if (res.status === 403) {
+      throw new Error(data.error || 'Access restricted: Administrator role required.');
+    }
     throw new Error(data.error || `Request failed with status ${res.status}`);
   }
 
