@@ -1,0 +1,7 @@
+{
+  "name": "SUNREB GEO-VISION & GROCERIES POS",
+  "description": "Professional POS and Inventory Management System with FEFO batch tracking, debts, expenses, and receipt printing for SUNREB GEO-VISION AND GROCERIES MULTIVENTURE.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
